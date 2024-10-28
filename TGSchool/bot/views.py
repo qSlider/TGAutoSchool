@@ -38,7 +38,6 @@ class AddQuestionView(View):
         if question_form.is_valid() and answer_formset.is_valid():
             title = question_form.cleaned_data['title']
 
-            # Перевірка на унікальність заголовка
             if Question.objects.filter(title=title).exists():
                 question_form.add_error('title', 'Питання з таким заголовком вже існує.')
                 return render(request, 'bot/add_question.html', {
@@ -46,7 +45,6 @@ class AddQuestionView(View):
                     'answer_form': answer_formset
                 })
 
-            # Перевірка на наявність хоча б однієї відповіді та правильної відповіді
             has_answer = False
             has_correct_answer = False
 
@@ -66,7 +64,6 @@ class AddQuestionView(View):
             elif not has_correct_answer:
                 answer_formset[0].add_error('is_correct', 'Має бути хоча б одна правильна відповідь.')
 
-            # Якщо є відповіді та хоча б одна правильна
             if has_answer and has_correct_answer:
                 question = question_form.save()
                 for answer_form in answer_formset:
@@ -75,7 +72,6 @@ class AddQuestionView(View):
                         answer.question = question
                         answer.save()
 
-                # Додаємо повідомлення про успіх
                 messages.success(request, 'Питання та відповіді успішно збережені!')
                 return redirect(request.path_info)  # Оновлюємо ту ж сторінку
 

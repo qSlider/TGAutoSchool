@@ -25,7 +25,7 @@ class UserQuestionStats(models.Model):
     telegram_id = models.BigIntegerField(null=True, blank=True)
     correct_answers = models.IntegerField(default=0)
     incorrect_answers = models.IntegerField(default=0)
-    last_incorrect = models.IntegerField(default=0)  # Нове поле для зберігання кількості останніх неправильних відповідей
+    last_incorrect = models.IntegerField(default=0)
 
     def __str__(self):
         return f"{self.user.username} - {self.question.title}"

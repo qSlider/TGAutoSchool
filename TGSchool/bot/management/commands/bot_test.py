@@ -36,10 +36,10 @@ class Command(BaseCommand):
                 'questions': questions[:3],
                 'current_question_index': 0,
                 'answered': False,
-                'answered_questions': set(),  # Зберігаємо ID питань, на які відповіли
-                'incorrect_questions': set(),  # Зберігаємо ID питань з неправильними відповідями
+                'incorrect_questions': []
             }
 
+            print(f"User {message.chat.id} розпочав тестування з питаннями: {[q.id for q in user_states[message.chat.id]['questions']]}")
             send_question(message.chat.id)
 
         def send_question(chat_id):
@@ -56,7 +56,8 @@ class Command(BaseCommand):
                         markup.add(types.InlineKeyboardButton(answer.text, callback_data=f'answer_{answer.id}'))
 
                     if question.image:
-                        bot.send_photo(chat_id, question.image, caption=f"{question.title}\n\n{question.description}", reply_markup=markup)
+                        bot.send_photo(chat_id, question.image, caption=f"{question.title}\n\n{question.description}",
+                                       reply_markup=markup)
                     else:
                         bot.send_message(chat_id, f"{question.title}\n\n{question.description}", reply_markup=markup)
 
@@ -67,40 +68,40 @@ class Command(BaseCommand):
                     markup.add(replay_button)
 
                     bot.send_message(chat_id, 'Тест завершено! Дякуємо за участь. Хочете пройти ще один тест?', reply_markup=markup)
-
+                    del user_states[chat_id]
             else:
                 bot.send_message(chat_id, 'На жаль, немає більше питань для тестування. Спробуйте пізніше!')
 
         @bot.message_handler(func=lambda message: message.text == 'Пройти ще один тест')
         def start_new_test(message):
-            user_state = user_states[message.chat.id]
+            user_state = user_states.get(message.chat.id)
 
-            # Отримуємо всі питання
+            # Якщо є неправильні питання, повторно їх використовуємо
+            if user_state and user_state['incorrect_questions']:
+                incorrect_questions = user_state['incorrect_questions']
+                print(
+                    f"User {message.chat.id} повторно проходить тест з неправильними питаннями: {incorrect_questions}")
+            else:
+                incorrect_questions = []
+
+            # Отримуємо нові випадкові питання
             all_questions = list(Question.objects.all())
+            random.shuffle(all_questions)
+            print(f"User {message.chat.id} розпочинає новий тест з новими питаннями.")
 
-            # Отримуємо питання, на які вже були дані відповіді
-            answered_questions = user_state['answered_questions']
+            # Формуємо новий список питань, комбінуючи неправильні та нові випадкові питання
+            selected_questions = incorrect_questions + all_questions[:3]  # Додаємо нові випадкові питання
+            random.shuffle(selected_questions)  # Перемішуємо комбінований список
 
-            # Отримуємо питання з неправильними відповідями
-            incorrect_questions = user_state['incorrect_questions']
+            new_question_ids = [q.id for q in selected_questions]
+            print(f"Формування нового тесту для користувача {message.chat.id}: питання {new_question_ids}")
 
-            # Формуємо список доступних питань
-            available_questions = [q for q in all_questions if q not in answered_questions]
-
-            # Додаємо питання з неправильними відповідями
-            if incorrect_questions:
-                available_questions += [q for q in incorrect_questions if q not in available_questions]
-
-            # Вибираємо випадкові питання для нового тесту
-            random.shuffle(available_questions)
-
-            # Зберігаємо нові питання в стані користувача
+            # Оновлюємо стан користувача
             user_states[message.chat.id] = {
-                'questions': available_questions[:3],  # Наприклад, 3 питання
+                'questions': selected_questions,
                 'current_question_index': 0,
                 'answered': False,
-                'answered_questions': answered_questions,  # Зберігаємо попередні відповіді
-                'incorrect_questions': incorrect_questions,  # Зберігаємо попередні неправильні відповіді
+                'incorrect_questions': user_state['incorrect_questions'] if user_state else []
             }
 
             send_question(message.chat.id)
@@ -109,40 +110,39 @@ class Command(BaseCommand):
         def handle_answer(call):
             chat_id = call.message.chat.id
 
-            if chat_id not in user_states:
-                bot.send_message(chat_id, 'Ви ще не розпочали тест. Будь ласка, запустіть тест.')
-                return
+            if chat_id in user_states:
+                user_state = user_states[chat_id]
 
-            user_state = user_states[chat_id]
+                if user_state['answered']:
+                    bot.send_message(chat_id, 'Ви вже відповіли на це питання.')
+                    return
 
-            if user_state['answered']:
-                bot.send_message(chat_id, 'Ви вже відповіли на це питання.')
-                return
+                answer_id = int(call.data.split('_')[1])
+                answer = Answer.objects.get(id=answer_id)
+                user = call.from_user
 
-            answer_id = int(call.data.split('_')[1])
-            answer = Answer.objects.get(id=answer_id)
-            user = call.from_user
+                user_instance = User.objects.filter(id=user.id).first()
+                if user_instance is None:
+                    bot.send_message(chat_id, 'Користувач не знайдений у системі. Не вдалося зберегти статистику.')
+                    return
 
-            user_instance = User.objects.filter(id=user.id).first()
-            if user_instance is None:
-                bot.send_message(chat_id, 'Користувач не знайдений у системі. Не вдалося зберегти статистику.')
-                return
+                stat, created = UserQuestionStats.objects.get_or_create(user=user_instance, question=answer.question)
 
-            stat, created = UserQuestionStats.objects.get_or_create(user=user_instance, question=answer.question)
-            if answer.is_correct:
-                bot.send_message(chat_id, 'Правильно! 🎉')
-                stat.correct_answers += 1
-            else:
-                correct_answer = answer.question.answers.filter(is_correct=True).first()
-                bot.send_message(chat_id, f'Неправильно. Правильна відповідь: {correct_answer.text}.')
-                stat.incorrect_answers += 1
-                user_state['incorrect_questions'].add(answer.question.id)  # Додаємо неправильне питання
+                if answer.is_correct:
+                    bot.send_message(chat_id, 'Правильно! 🎉')
+                    stat.correct_answers += 1
+                    print(f"User {chat_id} відповів правильно на питання {answer.question.id}.")
+                else:
+                    correct_answer = answer.question.answers.filter(is_correct=True).first()
+                    bot.send_message(chat_id, f'Неправильно. Правильна відповідь: {correct_answer.text}.')
+                    stat.incorrect_answers += 1
+                    user_state['incorrect_questions'].append(answer.question.id)
+                    print(f"User {chat_id} відповів неправильно на питання {answer.question.id}. Додано до неправильних: {user_state['incorrect_questions']}.")
 
-            stat.save()
-            user_state['answered'] = True
-            user_state['answered_questions'].add(answer.question.id)  # Додаємо питання до відповіданих
-            bot.edit_message_reply_markup(chat_id, call.message.message_id)
-            user_state['current_question_index'] += 1
-            send_question(chat_id)
+                stat.save()
+                user_state['answered'] = True
+                bot.edit_message_reply_markup(chat_id, call.message.message_id)
+                user_state['current_question_index'] += 1
+                send_question(chat_id)
 
         bot.polling(none_stop=True)
