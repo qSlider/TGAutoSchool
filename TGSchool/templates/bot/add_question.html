@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Додати запитання</title>
+</head>
+<body>
+    <h1>Додати нове запитання</h1>
+
+    <!-- Блок для відображення повідомлень -->
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">  <!-- Ця форма є правильною -->
+        {% csrf_token %}
+        {{ question_form.as_p }}  <!-- Відображення полів питання -->
+
+        <h2>Додати відповіді</h2>
+
+        <div id="answers-container">
+            {{ answer_form.management_form }}  <!-- Керуюча форма для форм відповідей -->
+            {% for form in answer_form %}
+                {{ form.as_p }}  <!-- Відображення полів для відповідей -->
+            {% endfor %}
+        </div>
+
+        <br><br>
+        <button type="submit">Зберегти</button>
+    </form>
+</body>
+</html>
