@@ -12,3 +12,6 @@ class AnswerForm(forms.ModelForm):
     class Meta:
         model = Answer
         fields = ['text', 'is_correct']
+
+class SearchForm(forms.Form):
+    query = forms.CharField(label='Пошук', max_length=100)

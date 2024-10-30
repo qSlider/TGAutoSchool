@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
 
 class Question(models.Model):
     title = models.CharField(max_length=255)
@@ -18,14 +17,28 @@ class Answer(models.Model):
     def __str__(self):
         return self.text
 
-
-class UserQuestionStats(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    question = models.ForeignKey(Question, on_delete=models.CASCADE)
-    telegram_id = models.BigIntegerField(null=True, blank=True)
-    correct_answers = models.IntegerField(default=0)
-    incorrect_answers = models.IntegerField(default=0)
-    last_incorrect = models.IntegerField(default=0)
+class IncorrectAnswer(models.Model):
+    telegram_id = models.BigIntegerField()
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="incorrect_answers")
+    timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.question.title}"
+        return f"Telegram ID: {self.telegram_id} - Питання: {self.question.title}"
+
+class CorrectAnswer(models.Model):
+    telegram_id = models.BigIntegerField()
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="correct_answers")
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Telegram ID: {self.telegram_id} - Питання: {self.question.title}"
+
+class Registration(models.Model):
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    phone_number = models.CharField(max_length=15)
+    email = models.EmailField()
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
+

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Список реєстрацій</title>
+</head>
+<body>
+    <h1>Список зареєстрованих користувачів</h1>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Пошук</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Ім'я</th>
+                <th>Призвіще</th>
+                <th>Телефон</th>
+                <th>Емейл</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for registration in registrations %}
+                <tr>
+                    <td>{{ registration.first_name }}</td>
+                    <td>{{ registration.last_name }}</td>
+                    <td>{{ registration.phone_number }}</td>
+                    <td>{{ registration.email }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="4">Немає зареєстрованих користувачів.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

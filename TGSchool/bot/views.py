@@ -1,22 +1,16 @@
-from django.shortcuts import render
-
+from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from datetime import datetime
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-
 from django.http import HttpResponseRedirect
-from django.shortcuts import render
-
-from django.shortcuts import render, redirect
 from django.views import View
-from .forms import QuestionForm, AnswerForm
+from .forms import QuestionForm, AnswerForm, SearchForm  # Додайте SearchForm тут
 from django.forms import formset_factory
-from django.http import HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
-from .models import Question
+from .models import Question, Registration
 
 
 @method_decorator(login_required(login_url='/admin/login/'), name='dispatch')
@@ -73,9 +67,32 @@ class AddQuestionView(View):
                         answer.save()
 
                 messages.success(request, 'Питання та відповіді успішно збережені!')
-                return redirect(request.path_info)  # Оновлюємо ту ж сторінку
+                return redirect(request.path_info)
 
         return render(request, 'bot/add_question.html', {
             'question_form': question_form,
             'answer_form': answer_formset
         })
+
+
+@method_decorator(login_required(login_url='/admin/login/'), name='dispatch')
+class CheckRegister(View):
+    def get(self, request):
+        form = SearchForm()
+        registrations = Registration.objects.all()
+        return render(request, 'bot/check_register.html', {'form': form, 'registrations': registrations})
+
+    def post(self, request):
+        form = SearchForm(request.POST)
+        registrations = Registration.objects.all()
+
+        if form.is_valid():
+            query = form.cleaned_data['query']
+            registrations = registrations.filter(
+                Q(first_name__icontains=query) |
+                Q(last_name__icontains=query) |
+                Q(phone_number__icontains=query) |
+                Q(email__icontains=query)
+            ).distinct()
+
+        return render(request, 'bot/check_register.html', {'form': form, 'registrations': registrations})
