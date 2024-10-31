@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="uk">
 <head>
@@ -18,9 +19,10 @@
         <thead>
             <tr>
                 <th>Ім'я</th>
-                <th>Призвіще</th>
+                <th>Прізвище</th>
                 <th>Телефон</th>
                 <th>Емейл</th>
+                <th>Дії</th>
             </tr>
         </thead>
         <tbody>
@@ -30,10 +32,18 @@
                     <td>{{ registration.last_name }}</td>
                     <td>{{ registration.phone_number }}</td>
                     <td>{{ registration.email }}</td>
+                    <td>
+                        <a href="{% url 'delete_registration' registration.id %}">
+                            <img src="{% static 'delete_remove.webp' %}" alt="Видалити" width="20" height="20">
+                        </a>
+                        <a href="{% url 'send_email' registration.id %}">
+                            <img src="{% static 'email.png' %}" alt="Відправити лист" width="20" height="20">
+                        </a>
+                    </td>
                 </tr>
             {% empty %}
                 <tr>
-                    <td colspan="4">Немає зареєстрованих користувачів.</td>
+                    <td colspan="5">Немає зареєстрованих користувачів.</td>
                 </tr>
             {% endfor %}
         </tbody>

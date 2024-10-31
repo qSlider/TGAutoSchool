@@ -1,17 +1,16 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
-from datetime import datetime
-from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from django.http import HttpResponseRedirect
 from django.views import View
-from .forms import QuestionForm, AnswerForm, SearchForm  # Додайте SearchForm тут
 from django.forms import formset_factory
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
-from .models import Question, Registration
+from django.core.mail import send_mail
+from django.conf import settings  # Імпорт налаштувань
 
+from .forms import QuestionForm, AnswerForm, SearchForm
+from .models import Question, Registration
 
 @method_decorator(login_required(login_url='/admin/login/'), name='dispatch')
 class AddQuestionView(View):
@@ -74,7 +73,6 @@ class AddQuestionView(View):
             'answer_form': answer_formset
         })
 
-
 @method_decorator(login_required(login_url='/admin/login/'), name='dispatch')
 class CheckRegister(View):
     def get(self, request):
@@ -96,3 +94,23 @@ class CheckRegister(View):
             ).distinct()
 
         return render(request, 'bot/check_register.html', {'form': form, 'registrations': registrations})
+
+@login_required(login_url='/admin/login/')
+def delete_registration(request, registration_id):
+    registration = get_object_or_404(Registration, id=registration_id)
+    registration.delete()
+    messages.success(request, "Користувача успішно видалено.")
+    return redirect('check_register')
+
+@login_required(login_url='/admin/login/')
+def send_email(request, registration_id):
+    registration = get_object_or_404(Registration, id=registration_id)
+    subject = "Вітаю, ви записалися на наші курси"
+    message = "Вітаємо, {0} {1}!\n\nДякуємо за реєстрацію. Наш менеджер скоро з вами зв'яжеться.".format(
+        registration.first_name, registration.last_name
+    )
+    recipient_list = [registration.email]
+
+    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, recipient_list)
+    messages.success(request, f"Лист надіслано на {registration.email}.")
+    return redirect('check_register')

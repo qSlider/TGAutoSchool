@@ -14,6 +14,7 @@ class Command(BaseCommand):
         bot = TeleBot(settings.TELEGRAM_BOT_API_KEY, threaded=False)
 
         user_states = {}
+        quanity_quiz = 20;
 
         @bot.message_handler(commands=['start'])
         def send_welcome(message):
@@ -35,7 +36,7 @@ class Command(BaseCommand):
             random.shuffle(questions)
 
             user_states[message.chat.id] = {
-                'questions': questions[:3],
+                'questions': questions[:quanity_quiz],
                 'current_question_index': 0,
                 'answered': False,
             }
@@ -128,17 +129,17 @@ class Command(BaseCommand):
                 if incorrect_questions:
                     questions_to_choose_from = incorrect_questions.copy()
 
-                    while len(questions_to_choose_from) < 3:
+                    while len(questions_to_choose_from) < quanity_quiz:
                         random_question = random.choice(all_questions)
                         if random_question not in questions_to_choose_from:
                             questions_to_choose_from.append(random_question)
                 else:
-                    questions_to_choose_from = random.sample(all_questions, min(3, len(all_questions)))
+                    questions_to_choose_from = random.sample(all_questions, min(quanity_quiz, len(all_questions)))
 
                 random.shuffle(questions_to_choose_from)
 
                 user_states[message.chat.id] = {
-                    'questions': questions_to_choose_from[:3],
+                    'questions': questions_to_choose_from[:quanity_quiz],
                     'current_question_index': 0,
                     'answered': False,
                 }

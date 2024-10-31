@@ -3,7 +3,7 @@ from django.db import IntegrityError
 from telebot import TeleBot, types
 from django.conf import settings
 from django.contrib.auth.models import User
-from bot.models import Question, Answer, IncorrectAnswer, CorrectAnswer  # Додайте CorrectAnswer
+from bot.models import Question, Answer, IncorrectAnswer, Registration
 import random
 
 
@@ -14,12 +14,14 @@ class Command(BaseCommand):
         bot = TeleBot(settings.TELEGRAM_BOT_API_KEY, threaded=False)
 
         user_states = {}
+        quanity_quiz = 20
 
         @bot.message_handler(commands=['start'])
         def send_welcome(message):
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             tests_button = types.KeyboardButton('Пройти тести')
-            markup.add(tests_button)
+            practice_button = types.KeyboardButton('Записатися на практику')
+            markup.add(tests_button, practice_button)
 
             user_id = message.from_user.id
             user_name = message.from_user.username
@@ -30,17 +32,65 @@ class Command(BaseCommand):
 
         @bot.message_handler(func=lambda message: message.text == 'Пройти тести')
         def start_tests(message):
-            questions = get_questions_for_user(message.chat.id)
-            random.shuffle(questions)
+            incorrect_questions = [
+                incorrect_answer.question for incorrect_answer in
+                IncorrectAnswer.objects.filter(telegram_id=message.chat.id)
+            ]
+            all_questions = list(Question.objects.all())
+
+            if incorrect_questions:
+                questions_to_choose_from = incorrect_questions.copy()
+                while len(questions_to_choose_from) < quanity_quiz:
+                    random_question = random.choice(all_questions)
+                    if random_question not in questions_to_choose_from:
+                        questions_to_choose_from.append(random_question)
+            else:
+                questions_to_choose_from = random.sample(all_questions, min(quanity_quiz, len(all_questions)))
+
+            random.shuffle(questions_to_choose_from)
+
 
             user_states[message.chat.id] = {
-                'questions': questions[:3],
+                'questions': questions_to_choose_from[:quanity_quiz],
                 'current_question_index': 0,
                 'answered': False,
+                'correct_answers': 0,
             }
-
             send_question(message.chat.id)
 
+        @bot.message_handler(func=lambda message: message.text == 'Записатися на практику')
+        def register_user(message):
+            bot.send_message(message.chat.id, "Введіть ваше ім'я:")
+            bot.register_next_step_handler(message, get_last_name)
+
+        def get_last_name(message):
+            first_name = message.text
+            bot.send_message(message.chat.id, "Введіть ваше призвіще:")
+            bot.register_next_step_handler(message, lambda m: get_phone(m, first_name))
+
+        def get_phone(message, first_name):
+            last_name = message.text
+            bot.send_message(message.chat.id, "Введіть номер телефону:")
+            bot.register_next_step_handler(message, lambda m: get_email(m, first_name, last_name))
+
+        def get_email(message, first_name, last_name):
+            phone_number = message.text
+            bot.send_message(message.chat.id, "Введіть вашу електронну пошту:")
+            bot.register_next_step_handler(message, lambda m: save_registration(m, first_name, last_name, phone_number))
+
+        def save_registration(message, first_name, last_name, phone_number):
+            email = message.text
+            try:
+                registration_instance = Registration(
+                    first_name=first_name,
+                    last_name=last_name,
+                    phone_number=phone_number,
+                    email=email
+                )
+                registration_instance.save()
+                bot.send_message(message.chat.id, "Ваша реєстрація успішна!")
+            except Exception as e:
+                bot.send_message(message.chat.id, f"Сталася помилка: {str(e)}")
         def get_questions_for_user(telegram_id):
             incorrect_questions = [
                 incorrect_answer.question for incorrect_answer in
@@ -61,14 +111,19 @@ class Command(BaseCommand):
                     question = questions[index]
                     markup = types.InlineKeyboardMarkup()
 
+                    answers_text = "\n".join(
+                        [f"{i + 1}. {answer.text}" for i, answer in enumerate(question.answers.all())])
+
+                    if question.image:
+                        bot.send_photo(chat_id, question.image,
+                                       caption=f"{question.title}\n\n{question.description}\n\n{answers_text}")
+                    else:
+                        bot.send_message(chat_id, f"{question.title}\n\n{question.description}\n\n{answers_text}")
+
                     for answer in question.answers.all():
                         markup.add(types.InlineKeyboardButton(answer.text, callback_data=f'answer_{answer.id}'))
 
-                    if question.image:
-                        bot.send_photo(chat_id, question.image, caption=f"{question.title}\n\n{question.description}",
-                                       reply_markup=markup)
-                    else:
-                        bot.send_message(chat_id, f"{question.title}\n\n{question.description}", reply_markup=markup)
+                    bot.send_message(chat_id, "Виберіть відповідь:", reply_markup=markup)
 
                     user_state['answered'] = False
                 else:
@@ -76,7 +131,8 @@ class Command(BaseCommand):
                     replay_button = types.KeyboardButton('Пройти ще один тест')
                     markup.add(replay_button)
 
-                    bot.send_message(chat_id, 'Тест завершено! Дякуємо за участь. Хочете пройти ще один тест?',
+                    bot.send_message(chat_id,
+                                     f'Тест завершено! Ви відповіли правильно на {user_state["correct_answers"]} з {quanity_quiz} питань. Дякуємо за участь. Хочете пройти ще один тест?',
                                      reply_markup=markup)
                     del user_states[chat_id]
             else:
@@ -93,19 +149,20 @@ class Command(BaseCommand):
                 if incorrect_questions:
                     questions_to_choose_from = incorrect_questions.copy()
 
-                    while len(questions_to_choose_from) < 3:
+                    while len(questions_to_choose_from) < quanity_quiz:
                         random_question = random.choice(all_questions)
                         if random_question not in questions_to_choose_from:
                             questions_to_choose_from.append(random_question)
                 else:
-                    questions_to_choose_from = random.sample(all_questions, min(3, len(all_questions)))
+                    questions_to_choose_from = random.sample(all_questions, min(quanity_quiz, len(all_questions)))
 
                 random.shuffle(questions_to_choose_from)
 
                 user_states[message.chat.id] = {
-                    'questions': questions_to_choose_from[:3],  # Беремо 3 випадкових питання
+                    'questions': questions_to_choose_from[:quanity_quiz],
                     'current_question_index': 0,
                     'answered': False,
+                    'correct_answers': 0,
                 }
 
                 send_question(message.chat.id)
@@ -126,35 +183,18 @@ class Command(BaseCommand):
                 answer_id = int(call.data.split('_')[1])
                 answer = Answer.objects.get(id=answer_id)
 
-                question = answer.question  # Отримуємо питання для подальшої логіки
-
                 if answer.is_correct:
                     bot.send_message(chat_id, 'Правильно! 🎉')
-                    IncorrectAnswer.objects.filter(telegram_id=chat_id, question=question).delete()
-
-                    # Додаємо правильну відповідь до бази даних
-                    if add_correct_answer(chat_id, question):
-                        bot.send_message(chat_id, 'Ви часто відповідаєте на це питання правильно!')
-
+                    IncorrectAnswer.objects.filter(telegram_id=chat_id, question=answer.question).delete()
+                    user_state['correct_answers'] += 1
                 else:
-                    correct_answer = question.answers.filter(is_correct=True).first()
+                    correct_answer = answer.question.answers.filter(is_correct=True).first()
                     bot.send_message(chat_id, f'Неправильно. Правильна відповідь: {correct_answer.text}.')
-                    IncorrectAnswer.objects.get_or_create(telegram_id=chat_id, question=question)
+                    IncorrectAnswer.objects.get_or_create(telegram_id=chat_id, question=answer.question)
 
                 user_state['answered'] = True
                 bot.edit_message_reply_markup(chat_id, call.message.message_id)
                 user_state['current_question_index'] += 1
                 send_question(chat_id)
-
-        def add_correct_answer(telegram_id, question):
-            # Підрахунок правильних відповідей на конкретне питання для користувача
-            correct_count = CorrectAnswer.objects.filter(telegram_id=telegram_id, question=question).count()
-
-            # Якщо користувач відповів правильно на питання тричі
-            if correct_count >= 2:  # Тобто, якщо є 2 записи, третя відповідь буде третьою
-                # Додаємо новий запис у CorrectAnswer
-                CorrectAnswer.objects.create(telegram_id=telegram_id, question=question)
-                return True
-            return False
 
         bot.polling(none_stop=True)
