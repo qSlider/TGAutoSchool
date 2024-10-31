@@ -24,9 +24,12 @@ class Command(BaseCommand):
             markup.add(tests_button, practice_button)
 
             user_id = message.from_user.id
-            user_name = message.from_user.username
+            user_name = message.from_user.username if message.from_user.username else f"user_{user_id}"
 
-            user_instance, created = User.objects.get_or_create(id=user_id, defaults={'username': user_name})
+            user_instance, created = User.objects.get_or_create(
+                id=user_id,
+                defaults={'username': user_name}
+            )
 
             bot.send_message(message.chat.id, 'Привіт, ти попав до нашої автошколи. Що ви хочете?', reply_markup=markup)
 
@@ -48,7 +51,6 @@ class Command(BaseCommand):
                 questions_to_choose_from = random.sample(all_questions, min(quanity_quiz, len(all_questions)))
 
             random.shuffle(questions_to_choose_from)
-
 
             user_states[message.chat.id] = {
                 'questions': questions_to_choose_from[:quanity_quiz],
@@ -89,8 +91,16 @@ class Command(BaseCommand):
                 )
                 registration_instance.save()
                 bot.send_message(message.chat.id, "Ваша реєстрація успішна!")
+
+                markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+                replay_button = types.KeyboardButton('Пройти ще один тест')
+                practice_button = types.KeyboardButton('Записатися на практику')
+                markup.add(replay_button, practice_button)
+
+                bot.send_message(message.chat.id, "Що ви хочете зробити далі?", reply_markup=markup)
             except Exception as e:
                 bot.send_message(message.chat.id, f"Сталася помилка: {str(e)}")
+
         def get_questions_for_user(telegram_id):
             incorrect_questions = [
                 incorrect_answer.question for incorrect_answer in
@@ -129,10 +139,11 @@ class Command(BaseCommand):
                 else:
                     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
                     replay_button = types.KeyboardButton('Пройти ще один тест')
-                    markup.add(replay_button)
+                    practice_button = types.KeyboardButton('Записатися на практику')
+                    markup.add(replay_button, practice_button)
 
                     bot.send_message(chat_id,
-                                     f'Тест завершено! Ви відповіли правильно на {user_state["correct_answers"]} з {quanity_quiz} питань. Дякуємо за участь. Хочете пройти ще один тест?',
+                                     f'Тест завершено! Ви відповіли правильно на {user_state["correct_answers"]} з {quanity_quiz} питань. Дякуємо за участь. Хочете пройти ще один тест або записатися на практику?',
                                      reply_markup=markup)
                     del user_states[chat_id]
             else:
