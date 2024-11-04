@@ -4,34 +4,106 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Додати запитання</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Центрування всієї сторінки */
+        body, html {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+
+        /* Центрування і вирівнювання поля Title */
+        .form-control {
+            width: 100%;
+            text-align: center; /* Текст у полі по центру */
+        }
+
+        /* Центрування всіх полів відповідей */
+        .answer-field {
+            display: none; /* Спочатку всі поля приховані */
+            flex-direction: row; /* Розташування полів відповіді на одній лінії */
+            align-items: center;
+            gap: 10px;
+        }
+
+        .answer-field input[type="text"] {
+            flex: 1; /* Заповнює всю доступну ширину */
+        }
+
+        .answer-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Центрування кнопки збереження */
+        .btn-primary {
+            width: 150px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Додати нове запитання</h1>
+    <div class="container mt-5">
+        <h1 class="text-center">Додати нове запитання</h1>
 
-    <!-- Блок для відображення повідомлень -->
-    {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-                <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+        <form method="post" enctype="multipart/form-data" class="needs-validation">
+            {% csrf_token %}
+            <div class="mb-3">
+                {{ question_form.as_p }}
+            </div>
 
-    <form method="post" enctype="multipart/form-data">  <!-- Ця форма є правильною -->
-        {% csrf_token %}
-        {{ question_form.as_p }}  <!-- Відображення полів питання -->
+            <h2>Додати відповіді</h2>
 
-        <h2>Додати відповіді</h2>
+            <div id="answers-container" class="answer-container">
+                {{ answer_form.management_form }}
+                {% for form in answer_form %}
+                    <div class="answer-field border rounded p-3">
+                        {{ form.as_p }}
+                    </div>
+                {% endfor %}
+            </div>
 
-        <div id="answers-container">
-            {{ answer_form.management_form }}  <!-- Керуюча форма для форм відповідей -->
-            {% for form in answer_form %}
-                {{ form.as_p }}  <!-- Відображення полів для відповідей -->
-            {% endfor %}
-        </div>
+            <div class="text-center">
+                <button type="submit" class="btn btn-primary mt-3">Зберегти</button>
+            </div>
+        </form>
+    </div>
 
-        <br><br>
-        <button type="submit">Зберегти</button>
-    </form>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const answerFields = document.querySelectorAll(".answer-field");
+            let currentAnswerIndex = 0;
+
+            // Показуємо перше поле відповіді
+            if (answerFields.length > 0) {
+                answerFields[currentAnswerIndex].style.display = "flex";
+            }
+
+            // Додаємо обробник події для кожного поля
+            answerFields.forEach((field, index) => {
+                const input = field.querySelector("input[type='text']");
+                input.addEventListener("input", function() {
+                    if (input.value.trim() !== "" && index === currentAnswerIndex) {
+                        // Якщо поле заповнено, показуємо наступне
+                        currentAnswerIndex++;
+                        if (currentAnswerIndex < answerFields.length) {
+                            answerFields[currentAnswerIndex].style.display = "flex";
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
