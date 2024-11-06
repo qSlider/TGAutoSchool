@@ -8,6 +8,8 @@ from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.core.mail import send_mail
 from django.conf import settings  # Імпорт налаштувань
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import TemplateView
 
 from .forms import QuestionForm, AnswerForm, SearchForm
 from .models import Question, Registration
@@ -114,3 +116,7 @@ def send_email(request, registration_id):
     send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, recipient_list)
     messages.success(request, f"Лист надіслано на {registration.email}.")
     return redirect('check_register')
+
+class Homepage(LoginRequiredMixin, TemplateView):
+    login_url = '/admin/login/'
+

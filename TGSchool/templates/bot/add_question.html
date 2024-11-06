@@ -58,7 +58,18 @@
         <form method="post" enctype="multipart/form-data" class="needs-validation">
             {% csrf_token %}
             <div class="mb-3">
-                {{ question_form.as_p }}
+                <label for="title" class="form-label">Title:</label>
+                <input type="text" id="title" name="title" class="form-control">
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label">Description:</label>
+                <textarea id="description" name="description" class="form-control" rows="5"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="image" class="form-label">Image:</label>
+                <input type="file" id="image" name="image" class="form-control">
             </div>
 
             <h2>Додати відповіді</h2>
