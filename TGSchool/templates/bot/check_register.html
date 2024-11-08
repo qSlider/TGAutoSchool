@@ -40,10 +40,10 @@
                         <td>{{ registration.email }}</td>
                         <td>
                             <a href="{% url 'delete_registration' registration.id %}" class="btn btn-outline-danger btn-sm">
-                                <img src="{% static 'images/delete_remove.webp' %}" alt="Видалити" width="20" height="20">
+                                <img src="{% static '/images/delete_remove.webp' %}" alt="Видалити" width="20" height="20">
                             </a>
                             <a href="{% url 'send_email' registration.id %}" class="btn btn-outline-info btn-sm">
-                                <img src="{% static 'images/email.png' %}" alt="Відправити лист" width="20" height="20">
+                                <img src="{% static '/images/email.png' %}" alt="Відправити лист" width="20" height="20">
                             </a>
                         </td>
                     </tr>
