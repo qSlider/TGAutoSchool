@@ -3,4 +3,4 @@ from .models import Question, Answer , Registration
 
 admin.site.register(Question)
 admin.site.register(Answer)
-admin.site.register(Registration)56
+admin.site.register(Registration)
